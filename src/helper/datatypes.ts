@@ -44,11 +44,9 @@ export type DuckDBNodeDataTypes = {
 // constructors
 export const bit = (value: string): RawBuilder<string> => sql`${value}::BIT`;
 export const blob = (buf: Buffer): RawBuilder<Buffer> => {
-  const byteStr: string[] = [];
-  for (const [_, c] of buf.entries()) {
-    byteStr.push(`\\x${c.toString(16)}`);
-  }
-  return sql`${byteStr.join("")}::BLOB`;
+  // Every byte needs two hex digits; a single digit would be an ambiguous escape.
+  const escaped = Array.from(buf, (byte) => `\\x${byte.toString(16).padStart(2, "0")}`).join("");
+  return sql`${escaped}::BLOB`;
 };
 // DATE is timezone-naive, so format from local calendar fields instead of UTC.
 export const date = (date: Date): RawBuilder<Date> => {

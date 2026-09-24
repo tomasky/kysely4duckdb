@@ -14,6 +14,8 @@ import {
 import { CompiledQuery } from "kysely";
 import type { DatabaseConnection, Driver, QueryResult } from "kysely";
 
+import { isRowsReturningStatement } from "./helper/sql-statement";
+
 export interface DuckDbNodeDriverConfig {
   /**
    * DuckDBInstance instance or a function returns a Promise of DuckDBInstance instance.
@@ -66,7 +68,7 @@ export class DuckDbNodeDriver implements Driver {
   }
 
   async destroy(): Promise<void> {
-    this.#db!.closeSync();
+    this.#db?.closeSync();
   }
 }
 
@@ -81,65 +83,73 @@ class DuckDBConnection implements DatabaseConnection {
     const { sql, parameters } = compiledQuery;
     const result = await this.#conn.run(sql, parameters as any);
     const rows = (await result.getRowObjects()).map((r) => this.#convertRow(r));
-    return this.formatToResult(rows, sql);
+    return this.formatToResult<O>(rows, this.isMutationQuery(compiledQuery, rows));
   }
 
   async *streamQuery<R>(compiledQuery: CompiledQuery): AsyncIterableIterator<QueryResult<R>> {
     const { sql, parameters } = compiledQuery;
     const result = await this.#conn.stream(sql, parameters as any);
     const columnNames = result.deduplicatedColumnNames();
-    const self = this;
-    const gen = async function*() {
-      let isSelect: undefined | boolean = undefined;
-      while (true) {
-        const chunk = await result.fetchChunk();
-        if (chunk == null || chunk.rowCount === 0) {
-          break;
-        }
-        const rows = chunk.getRowObjects(columnNames).map((r) => self.#convertRow(r));
-        for (const row of rows) {
-          if (isSelect === undefined) {
-            isSelect = self.isSelect([row], sql);
-          }
-          yield self.formatToResult<R>([row], sql, isSelect);
-        }
+
+    while (true) {
+      const chunk = await result.fetchChunk();
+      if (chunk == null || chunk.rowCount === 0) {
+        break;
       }
-    };
-    yield* gen();
+
+      const rows = chunk.getRowObjects(columnNames).map((r) => this.#convertRow(r));
+      yield this.formatToResult<R>(rows, this.isMutationQuery(compiledQuery, rows));
+    }
   }
 
-  private isSelect(result: Record<string, unknown>[], sql: string): boolean {
-    if (result.length === 0) {
-      return sql.toLocaleLowerCase().includes("select");
+  /**
+   * DuckDB reports affected rows for DML as a single generated `Count` column,
+   * which by shape alone is indistinguishable from `SELECT count(*) AS count`.
+   * Prefer Kysely's parsed node kind and fall back to the result shape only for
+   * raw SQL, where the node kind carries no information.
+   */
+  private isMutationQuery(compiledQuery: CompiledQuery, result: Record<string, unknown>[]): boolean {
+    switch (compiledQuery.query.kind) {
+      case "InsertQueryNode":
+      case "UpdateQueryNode":
+      case "DeleteQueryNode":
+      case "MergeQueryNode":
+        return true;
+      case "SelectQueryNode":
+        return false;
+      default:
+        return this.isMutationResult(compiledQuery.sql, result);
     }
-
-    // I can not detect correct query type easily..., use workaround in here.
-    const firstKey = Object.keys(result[0])[0];
-    const isInsertedRows = Object.keys(result[0]).length == 1
-      && firstKey.toLowerCase() == "count"
-      && result.length == 1;
-    return !isInsertedRows;
   }
 
-  private formatToResult<O>(result: Record<string, unknown>[], sql: string, isSelect?: boolean): QueryResult<O> {
-    if (isSelect === undefined) {
-      isSelect = this.isSelect(result, sql);
+  private isMutationResult(sql: string, result: Record<string, unknown>[]): boolean {
+    if (isRowsReturningStatement(sql)) {
+      return false;
     }
 
-    if (isSelect) {
+    // Raw DML returns a single `Count` column holding the affected row count.
+    if (result.length !== 1) {
+      return false;
+    }
+    const keys = Object.keys(result[0]);
+    return keys.length === 1 && keys[0].toLowerCase() === "count";
+  }
+
+  private formatToResult<O>(result: Record<string, unknown>[], isMutation: boolean): QueryResult<O> {
+    if (!isMutation) {
       return { rows: result as O[] };
-    } else {
-      const row = result[0];
-      const count = row == null ? undefined : (row as any)["Count"] ?? (row as any)["count"];
-      const numAffectedRows = count == null ? undefined : BigInt(count);
-
-      return {
-        numChangedRows: numAffectedRows,
-        numAffectedRows,
-        insertId: undefined,
-        rows: [],
-      };
     }
+
+    const row = result[0];
+    const count = row == null ? undefined : (row as any)["Count"] ?? (row as any)["count"];
+    const numAffectedRows = count == null ? undefined : BigInt(count);
+
+    return {
+      numChangedRows: numAffectedRows,
+      numAffectedRows,
+      insertId: undefined,
+      rows: [],
+    };
   }
 
   async disconnect(): Promise<void> {

@@ -49,7 +49,7 @@ export interface DuckDbQueryCompilerConfigs {
 }
 
 export class DuckDbQueryCompiler extends DefaultQueryCompiler {
-  #configs: DuckDbQueryCompilerConfigs;
+  #configs: DuckDbQueryCompilerConfigs & { tableMappings: { [tableName: string]: string; }; };
 
   constructor(configs: DuckDbQueryCompilerConfigs) {
     super();
@@ -85,7 +85,7 @@ export class DuckDbQueryCompiler extends DefaultQueryCompiler {
   }
 
   protected visitTable(node: TableNode): void {
-    const mappings = this.#configs.tableMappings ?? {};
+    const mappings = this.#configs.tableMappings;
     const table = node.table.identifier.name;
     const schema = node.table.schema?.name;
 

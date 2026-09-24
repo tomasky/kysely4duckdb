@@ -8,14 +8,14 @@ Please see following instructions and [API Reference](https://runoshun.github.io
 ### Installation
 
 ```bash
-$ npm install --save kysely @duckdb/node-api kysely-duckdb
+$ pnpm install --save kysely @duckdb/node-api kysely-duckdb
 ```
 
 For the WASM dialect, install the WASM runtime dependencies instead of
 `@duckdb/node-api`:
 
 ```bash
-$ npm install --save kysely kysely-duckdb @duckdb/duckdb-wasm@1.32.0 web-worker
+$ pnpm install --save kysely kysely-duckdb @duckdb/duckdb-wasm@1.32.0 web-worker
 ```
 
 `@duckdb/duckdb-wasm@1.32.0` is the stable runtime version tested by this

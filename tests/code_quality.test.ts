@@ -66,3 +66,32 @@ test("createTablesAsSelect supports schema-qualified generated table names", asy
   const rows = await dbWithTable.selectFrom("scratch.generated").selectAll().execute();
   expect(rows).toEqual([{ a: 1 }]);
 });
+
+test("getSchemas returns real schema names", async () => {
+  const kysely = await setupDb();
+
+  try {
+    const schemas = await kysely.introspection.getSchemas();
+
+    expect(schemas.map((it) => it.name)).toContain("main");
+    expect(schemas.every((it) => typeof it.name === "string" && it.name.length > 0)).toBe(true);
+  } finally {
+    await kysely.destroy();
+  }
+});
+
+test("node driver returns rows for a single count column select", async () => {
+  const kysely = await setupDb();
+
+  try {
+    const rows = await kysely
+      .selectFrom("t1")
+      .select((eb) => eb.fn.count<number>("a").as("count"))
+      .execute();
+
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0].count)).toBe(1);
+  } finally {
+    await kysely.destroy();
+  }
+});

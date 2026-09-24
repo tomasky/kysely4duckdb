@@ -49,6 +49,21 @@ test("insert into complex types", async () => {
   expect(res[0].numInsertedOrUpdatedRows).toBe(BigInt(1));
 });
 
+test("blob helper round-trips bytes below 0x10", async () => {
+  const kysely = await setupDb();
+  const bytes = Buffer.from([0x00, 0x0a, 0x0f, 0x80, 0xff]);
+
+  await kysely.insertInto("t2").values({ bl: types.blob(bytes) }).execute();
+
+  const rows = await kysely
+    .selectFrom("t2")
+    .select("bl")
+    .where("bl", "=", types.blob(bytes))
+    .execute();
+
+  expect(rows).toEqual([{ bl: bytes }]);
+});
+
 test("update table", async () => {
   const kysely = await setupDb();
 

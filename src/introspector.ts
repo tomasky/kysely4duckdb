@@ -1,11 +1,12 @@
-import { DEFAULT_MIGRATION_LOCK_TABLE, DEFAULT_MIGRATION_TABLE, Kysely, sql } from "kysely";
+import { sql } from "kysely";
 import type {
   DatabaseIntrospector,
-  DatabaseMetadata,
   DatabaseMetadataOptions,
+  Kysely,
   SchemaMetadata,
   TableMetadata,
 } from "kysely";
+import { DEFAULT_MIGRATION_LOCK_TABLE, DEFAULT_MIGRATION_TABLE } from "kysely/migration";
 
 export class DuckDbIntrospector implements DatabaseIntrospector {
   readonly #db: Kysely<any>;
@@ -21,7 +22,7 @@ export class DuckDbIntrospector implements DatabaseIntrospector {
       .$castTo<RawSchemaMetadata>()
       .execute();
 
-    return rawSchemas.map((it) => ({ name: it.SCHEMA_NAME }));
+    return rawSchemas.map((it) => ({ name: it.schema_name }));
   }
 
   async getTables(
@@ -58,14 +59,6 @@ export class DuckDbIntrospector implements DatabaseIntrospector {
     return this.#parseTableMetadata(rawColumns);
   }
 
-  async getMetadata(
-    options?: DatabaseMetadataOptions,
-  ): Promise<DatabaseMetadata> {
-    return {
-      tables: await this.getTables(options),
-    };
-  }
-
   #parseTableMetadata(columns: RawColumnMetadata[]): TableMetadata[] {
     return columns.reduce<TableMetadata[]>((tables, it) => {
       let table = tables.find((tbl) => tbl.name === it.table_name);
@@ -74,6 +67,8 @@ export class DuckDbIntrospector implements DatabaseIntrospector {
         table = Object.freeze({
           name: it.table_name,
           isView: it.table_type === "view",
+          // DuckDB has no foreign tables (no FDW), so this is always false.
+          isForeign: false,
           schema: it.table_schema,
           columns: [],
         });
@@ -97,7 +92,7 @@ export class DuckDbIntrospector implements DatabaseIntrospector {
 }
 
 interface RawSchemaMetadata {
-  SCHEMA_NAME: string;
+  schema_name: string;
 }
 
 interface RawColumnMetadata {
@@ -108,5 +103,4 @@ interface RawColumnMetadata {
   table_type: string;
   is_nullable: "YES" | "NO";
   data_type: string;
-  extra: string;
 }

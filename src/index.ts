@@ -75,6 +75,7 @@ export class DuckDbDialect implements Dialect {
   }
 }
 
+export { KyselyDuckDbExtension } from "./extension";
 export * as datatypes from "./helper/datatypes";
 export type { DuckDBNodeDataTypes } from "./helper/datatypes";
 export type { DuckDbNodeDriverConfig } from "./driver-node";

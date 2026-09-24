@@ -2,6 +2,8 @@ import type { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm";
 import { CompiledQuery } from "kysely";
 import type { DatabaseConnection, Driver, QueryResult } from "kysely";
 
+import { isRowsReturningStatement } from "./helper/sql-statement";
+
 export interface DuckDbWasmDriverConfig {
   /**
    * AsyncDuckDB instance or a function that returns a Promise of an AsyncDuckDB instance.
@@ -104,13 +106,15 @@ class DuckDBWasmConnection implements DatabaseConnection {
       case "SelectQueryNode":
         return false;
       default:
-        return !compiledQuery.sql.trimStart().toLocaleLowerCase().startsWith("select");
+        return !isRowsReturningStatement(compiledQuery.sql);
     }
   }
 
   #formatToResult<O>(result: ArrowResult, isMutationQuery: boolean): QueryResult<O> {
     if (!isMutationQuery) {
-      return { rows: result.toArray().map((row) => this.#convertRow(row, result.schema.fields)) as O[] };
+      // Build the field lookup once per result set rather than once per row.
+      const fieldByName = new Map(result.schema.fields.map((field) => [field.name, field]));
+      return { rows: result.toArray().map((row) => this.#convertRow(row, fieldByName)) as O[] };
     }
 
     const row = result.get(0) as Record<string, unknown> | null | undefined;
@@ -129,10 +133,9 @@ class DuckDBWasmConnection implements DatabaseConnection {
     await this.#conn.close();
   }
 
-  #convertRow(value: unknown, fields: ReadonlyArray<ArrowField>): unknown {
+  #convertRow(value: unknown, fieldByName: Map<string, ArrowField>): unknown {
     if (value == null || typeof value !== "object") return this.#convertValue(value);
 
-    const fieldByName = new Map(fields.map((field) => [field.name, field]));
     const obj: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value)) {
       obj[key] = this.#convertValue(item, fieldByName.get(key));
