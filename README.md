@@ -1,21 +1,21 @@
 ## Kysely Dialect for DuckDB
 
-[![test](https://github.com/runoshun/kysely-duckdb/actions/workflows/test.yml/badge.svg)](https://github.com/runoshun/kysely-duckdb/actions/workflows/test.yml)
+[![test](https://github.com/tomasky/kysely4duckdb/actions/workflows/test.yml/badge.svg)](https://github.com/tomasky/kysely4duckdb/actions/workflows/test.yml)
 
 This dialect allows you to use [Kysely](https://kysely.dev/) with [DuckDB](https://duckdb.org/).
-Please see following instructions and [API Reference](https://runoshun.github.io/kysely-duckdb/).
+Please see following instructions and [API Reference](https://tomasky.github.io/kysely4duckdb/).
 
 ### Installation
 
 ```bash
-$ pnpm install --save kysely @duckdb/node-api kysely-duckdb
+$ pnpm install --save kysely @duckdb/node-api kysely4duckdb
 ```
 
 For the WASM dialect, install the WASM runtime dependencies instead of
 `@duckdb/node-api`:
 
 ```bash
-$ pnpm install --save kysely kysely-duckdb @duckdb/duckdb-wasm@1.32.0 web-worker
+$ pnpm install --save kysely kysely4duckdb @duckdb/duckdb-wasm@1.32.0 web-worker
 ```
 
 `@duckdb/duckdb-wasm@1.32.0` is the stable runtime version tested by this
@@ -26,7 +26,7 @@ package for the Node-compatible WASM smoke path.
 ```ts
 import { DuckDBInstance } from "@duckdb/node-api";
 import { Kysely } from "kysely";
-import { DuckDbDialect } from "kysely-duckdb";
+import { DuckDbDialect } from "kysely4duckdb";
 
 const db = await DuckDBInstance.create(":memory:");
 const duckdbDialect = new DuckDbDialect({
@@ -52,7 +52,7 @@ entry point does not import `@duckdb/duckdb-wasm` runtime code.
 
 ```ts
 import { Kysely } from "kysely";
-import { createDuckDbWasmDatabase, DuckDbWasmDialect } from "kysely-duckdb/wasm-node";
+import { createDuckDbWasmDatabase, DuckDbWasmDialect } from "kysely4duckdb/wasm-node";
 
 interface Database {
   person: {
@@ -84,7 +84,7 @@ await kysely.destroy();
 `createDuckDbWasmDatabase` creates an in-memory `AsyncDuckDB` using
 `@duckdb/duckdb-wasm`'s Node worker files and `web-worker`. If you already have
 an instantiated `AsyncDuckDB`, import `DuckDbWasmDialect` from
-`kysely-duckdb/wasm` and pass it as `database`.
+`kysely4duckdb/wasm` and pass it as `database`.
 
 Browser bundlers must provide DuckDB WASM and worker URLs using
 `@duckdb/duckdb-wasm`'s bundler-specific setup. The Node-compatible WASM smoke
@@ -125,8 +125,8 @@ of these using [raw SQL](https://kysely.dev/docs/recipes/raw-sql) feature.
 This package includes some shallow helper for these types.
 
 ```ts
-import type { DuckDBNodeDataTypes } from "kysely-duckdb";
-import { datatypes } from "kysely-dockdb";
+import type { DuckDBNodeDataTypes } from "kysely4duckdb";
+import { datatypes } from "kysely4duckdb";
 
 // DuckDBNodeDataTypes: type mappings for table schema
 export interface Database {

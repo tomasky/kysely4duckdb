@@ -6,13 +6,17 @@ import { setupDb } from "./test_common";
 
 test("introspection does not emit console output", async () => {
   const kysely = await setupDb();
-  const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+  const logged: unknown[][] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => {
+    logged.push(args);
+  };
 
   try {
     await kysely.introspection.getTables();
-    expect(logSpy).not.toHaveBeenCalled();
+    expect(logged).toEqual([]);
   } finally {
-    logSpy.mockRestore();
+    console.log = originalLog;
   }
 });
 

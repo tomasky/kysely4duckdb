@@ -42,7 +42,12 @@ function createNodeBundles(duckdbDist: string): DuckDBBundles {
 
 async function createNodeWorker(workerUrl: string): Promise<Worker> {
   const { default: WebWorker } = await import("web-worker");
-  return new WebWorker(workerUrl) as Worker;
+  // DuckDB ships its node worker as a CommonJS bundle (.cjs). web-worker >= 1.5
+  // evaluates *classic* workers with vm.runInThisContext, which has no
+  // CommonJS wrapper and therefore fails with "module is not defined". The
+  // module worker path loads through Node's own loader, which handles .cjs
+  // correctly, and behaves the same on older web-worker versions.
+  return new WebWorker(workerUrl, { type: "module" }) as Worker;
 }
 
 export { DuckDbWasmDialect } from "./wasm";
